@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Atlas — Architecture on a Map</title>
+    <meta name="author" content="Pablo Pérez (@pablopsoto)" />
+    <meta name="description" content="A minimal monochrome atlas of the works of ten of the world's most celebrated architects, from Gaudí to Hadid." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3f2ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&display=swap"
+    />
+  </head>
+  <body>
+    <div id="map" role="application" aria-label="Map of architectural works"></div>
+    <div id="stage" class="stage" aria-label="3D model of the selected work"></div>
+
+    <div class="stack">
+    <header class="titleblock" aria-label="Atlas">
+      <div class="tb-name">
+        <h1>Atlas</h1>
+        <p>of built form</p>
+      </div>
+      <div class="tb-sheet mono"><span>Sheet&nbsp;01</span></div>
+      <div class="tb-cell mono" id="tb-count">—</div>
+      <div class="tb-cell mono" id="tb-range">—</div>
+      <div class="tb-cell mono tb-author"><span>Drawn by</span> Pablo Pérez — @pablopsoto</div>
+      <div class="tb-search">
+        <label class="sr-only" for="search">Search works</label>
+        <input id="search" type="search" placeholder="Search works, cities…" autocomplete="off" spellcheck="false" />
+        <kbd class="mono" aria-hidden="true">/</kbd>
+        <ul id="search-results" role="listbox" aria-label="Search results" hidden></ul>
+      </div>
+    </header>
+
+    <section id="brief" class="brief" aria-live="polite" hidden></section>
+    </div>
+
+    <div class="toolbar">
+      <button class="tool" popovertarget="filters" aria-label="Filters">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4.5 8h7M7 12h2" /></svg>
+        <span>Filters</span><span class="badge mono" id="filter-badge" hidden></span>
+      </button>
+      <button class="tool" id="theme" aria-label="Toggle dark mode">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 2.5v11a5.5 5.5 0 0 0 0-11z" class="fill" /></svg>
+      </button>
+    </div>
+
+    <div id="filters" class="filters" popover>
+      <header>
+        <h2>Filters</h2>
+        <button id="filters-reset" class="link mono">Reset</button>
+      </header>
+      <label class="switch">
+        <input type="checkbox" id="icons-only" />
+        <span>Masterworks only</span>
+      </label>
+      <fieldset>
+        <legend>Typology</legend>
+        <div class="chips" id="type-chips"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Style</legend>
+        <div class="chips" id="style-chips"></div>
+      </fieldset>
+    </div>
+
+    <aside id="sheet" class="sheet" aria-labelledby="sheet-title" hidden></aside>
+
+    <footer class="dock">
+      <div class="timeline" id="timeline"></div>
+      <nav class="banner" id="banner" aria-label="Architects"></nav>
+      <p class="credits mono">
+        <span class="credits-author">Pablo Pérez — @pablopsoto</span> ·
+        Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>
+        © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>
+        © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> ·
+        Data <a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> (CC0) ·
+        Images <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>
+      </p>
+    </footer>
+
+    <div id="focusbar" class="focusbar" hidden>
+      <div class="fb-seg" role="group" aria-label="Model">
+        <button data-mode="model" aria-pressed="false">Model</button>
+        <button data-mode="photo" aria-pressed="false">Photoreal</button>
+        <button data-mode="massing" aria-pressed="false">Massing</button>
+      </div>
+      <button id="fb-mono" class="fb-btn" aria-pressed="true" title="Show the model in monochrome">Mono</button>
+      <span class="fb-hint mono">Drag to orbit · Scroll to zoom</span>
+      <span class="fb-credit mono" id="fb-credit"></span>
+    </div>
+
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
