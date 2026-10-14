@@ -15,6 +15,10 @@ function build(k: Kit) {
   k.box(0, 0, S / 2 - T / 2, S, H, T);
   k.box(0, H - T, 0, S, T, S);
   k.glazing([S / 2 - 0.1, -S / 2 + T], [S / 2 - 0.1, S / 2 - T], 0, H - T, 3.6, { bar: 0.12, inset: 0, transoms: [5.8] });
+  // The panel grid on the concrete.
+  k.formwork([-S / 2, S / 2], [-S / 2, -S / 2], 0, H);
+  k.formwork([-S / 2, -S / 2], [S / 2, -S / 2], 0, H);
+  k.formwork([S / 2, S / 2], [-S / 2, S / 2], 0, H);
   // The upper glass cube with its four crosses, set at the back corner.
   const c = 10;
   const cx = -S / 2 + c / 2 - 2;

@@ -1,46 +1,102 @@
-// Guggenheim Museum Bilbao (Frank Gehry, 1997). On the south bank of the Nervión: a cluster
-// of titanium-clad curved volumes round a tall atrium "flower", tied to the city by
-// rectilinear blocks of limestone; the longest gallery runs east under the La Salve bridge
-// and ends in a tower that clasps it. River (north) is -z.
-import { roundRect, type Kit, type ModelInfo, type P3 } from '../kit';
+// Guggenheim Museum Bilbao (Frank Gehry, 1997). On the south bank of the Nervión: round-
+// shouldered galleries clad in titanium, like hulls, gather round the atrium's "flower" of
+// curved metal petals and its glass roof; rectilinear blocks of limestone with punched
+// windows face the city; the longest gallery runs east under the La Salve bridge to the
+// tower that clasps it. The river (north) is -z.
+import { type Kit, type ModelInfo, type P3 } from '../kit';
+
+const N = 40;
 
 /**
- * A Gehry volume: a box whose section turns, slides and swells as it rises, its corners
- * only slightly rounded, so its skin reads as bent sheet. Stations: [y, cx, cz, w, d, turn].
+ * A hull: a rounded plan (superellipse rx × rz, turned) whose walls swell out and then
+ * curl in to a gently domed roof. Stations are [height, scale] up the wall.
  */
-function volume(k: Kit, stations: [number, number, number, number, number, number][]) {
-  const rings: P3[][] = stations.map(([y, cx, cz, w, d, turn]) =>
-    roundRect(w, d, Math.min(w, d) * 0.18, 0, 0, 3).map(([x, z]): P3 => [cx + x * Math.cos(turn) - z * Math.sin(turn), y, cz + x * Math.sin(turn) + z * Math.cos(turn)]),
-  );
+function hull(k: Kit, cx: number, cz: number, rx: number, rz: number, h: number, turn = 0, lean: [number, number] = [0, 0]) {
+  const plan = (s: number, dy: number): P3[] =>
+    Array.from({ length: N }, (_, i) => {
+      const a = (i / N) * Math.PI * 2;
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      // Superellipse: squarer than an ellipse, rounder than a box.
+      const x = Math.sign(c) * Math.abs(c) ** 0.6 * rx * s;
+      const z = Math.sign(sn) * Math.abs(sn) ** 0.6 * rz * s;
+      const t = dy / h;
+      return [cx + x * Math.cos(turn) - z * Math.sin(turn) + lean[0] * t, dy, cz + x * Math.sin(turn) + z * Math.cos(turn) + lean[1] * t];
+    });
+  // Walls that swell a little, a crisp shoulder, then a nearly flat roof.
+  const rings = [plan(1, 0), plan(1.05, h * 0.4), plan(1.06, h * 0.78), plan(1.03, h * 0.95), plan(0.97, h), plan(0.6, h * 1.015), plan(0.05, h * 1.025)];
   k.loft(rings);
 }
 
+/** A petal: a curved sheet of metal on an arc round the atrium, twisting and opening as it rises. */
+function petal(k: Kit, a0: number, a1: number, r0: number, h: number, twist: number, flare: number) {
+  const rings: P3[][] = [];
+  const M = 12;
+  for (let j = 0; j <= 8; j++) {
+    const t = j / 8;
+    const y = t * h;
+    const r = r0 + flare * t ** 1.6;
+    const da = twist * t;
+    const outer: P3[] = [];
+    const inner: P3[] = [];
+    for (let i = 0; i <= M; i++) {
+      const a = a0 + da + ((a1 - a0) * i) / M;
+      // The sheet bows outward in the middle of the petal.
+      const bow = Math.sin((i / M) * Math.PI) * 2.4 * (0.4 + t);
+      outer.push([Math.cos(a) * (r + bow + 0.5), y, Math.sin(a) * (r + bow + 0.5) - 8]);
+      inner.push([Math.cos(a) * (r + bow), y, Math.sin(a) * (r + bow) - 8]);
+    }
+    rings.push([...outer, ...inner.reverse()]);
+  }
+  k.loft(rings);
+}
+
+/** A limestone block with its punched windows on the street faces. */
+function stone(k: Kit, x0: number, x1: number, z0: number, z1: number, h: number) {
+  k.box((x0 + x1) / 2, 0, (z0 + z1) / 2, x1 - x0, h, z1 - z0);
+  for (let y = 3; y < h - 1.5; y += 3.4) {
+    for (let x = x0 + 2; x < x1 - 1; x += 3) k.box(x, y, z1 + 0.02, 1.1, 1.5, 0.12);
+    for (let z = z0 + 2; z < z1 - 1; z += 3) k.box(x0 - 0.02, y, z, 0.12, 1.5, 1.1);
+  }
+}
+
 function build(k: Kit) {
-  // ——— Limestone blocks to the south and west, the city side ———
-  k.box(-50, 0, 24, 36, 17, 26);
-  k.box(-20, 0, 34, 24, 12, 18);
-  k.box(-64, 0, -4, 18, 22, 22);
-  k.box(-38, 0, -2, 14, 27, 12);
-  // ——— The atrium and its "flower": the tallest volumes, twisting as they climb ———
-  volume(k, [[0, -8, -2, 24, 20, 0.1], [20, -6, -3, 22, 18, 0.35], [36, -4, -5, 16, 13, 0.7], [50, -2, -6, 8, 6, 1.0]]);
-  volume(k, [[8, -22, -12, 20, 14, 0.5], [22, -21, -14, 22, 15, 0.7], [34, -19, -15, 16, 10, 1.0]]);
-  volume(k, [[0, 10, -16, 18, 14, -0.4], [14, 12, -17, 20, 15, -0.15], [28, 13, -18, 14, 10, 0.25]]);
-  volume(k, [[12, -6, 12, 16, 12, -0.2], [26, -5, 13, 18, 12, 0.1], [36, -4, 14, 12, 8, 0.4]]);
-  // The river-side sails: lower, wider, leaning out over the water.
-  volume(k, [[0, -36, -20, 28, 14, 0.15], [12, -38, -25, 30, 15, 0.05], [22, -37, -27, 22, 10, -0.05]]);
-  volume(k, [[0, 20, -2, 20, 18, 0.6], [16, 22, -4, 22, 18, 0.85], [27, 23, -5, 15, 12, 1.1]]);
-  // ——— The long gallery east, under the bridge, ending at the tower ———
-  volume(k, [[0, 54, -9, 70, 24, 0.0], [10, 56, -10, 74, 26, 0.03], [20, 58, -11, 66, 20, 0.06], [24, 58, -11, 52, 12, 0.08]]);
-  // La Salve bridge crossing over it, on its piers.
-  k.box(88, 26, -10, 14, 1.4, 120);
-  for (const z of [-48, 28]) k.box(88, 0, z, 6, 26, 4);
-  // The tower that clasps the bridge.
-  volume(k, [[0, 100, 10, 9, 7, 0], [20, 100, 10, 8, 6, 0.35], [36, 100, 10, 6, 4.5, 0.7], [42, 100, 10, 2.5, 2, 0.8]]);
-  // Glass curtain walls of the atrium facing the water.
-  k.box(-8, 0, -24, 20, 20, 0.4);
-  // ——— The water: the reflecting pool along the river front, and the quay ———
-  k.box(-10, -0.2, -42, 130, 0.2, 18);
-  k.box(-10, 0, -52, 150, 1.5, 3);
+  // ——— Limestone to the south and west, facing the city ———
+  stone(k, -52, -24, 8, 34, 16);
+  stone(k, -24, -4, 16, 30, 12);
+  stone(k, -10, 2, 6, 16, 26); // the tall block by the entrance
+  stone(k, -64, -52, -14, 10, 20);
+
+  // ——— Titanium: the hull-shaped galleries round the atrium ———
+  hull(k, -40, -14, 22, 9, 15, -0.08);
+  hull(k, -18, -24, 13, 9, 22, 0.3, [-3, -2]);
+  hull(k, 14, -22, 14, 10, 24, -0.4, [2, -3]);
+  hull(k, 16, 4, 11, 10, 20, 0.5, [3, 1]);
+  hull(k, -22, 0, 10, 8, 18, -0.3);
+  // The long gallery east, under the bridge: the "fish", 130 m long.
+  hull(k, 54, -10, 40, 13, 18, 0.03, [0, -1]);
+
+  // ——— The atrium: petals of metal round its glass roof ———
+  // Irregular on purpose: each petal its own height, twist and lean.
+  petal(k, -0.3, 1.0, 7, 52, 0.7, 12);
+  petal(k, 0.9, 2.0, 8.5, 31, -0.4, 9);
+  petal(k, 1.9, 3.2, 7, 44, 0.9, 14);
+  petal(k, 3.0, 3.9, 9, 27, -0.6, 7);
+  petal(k, 3.8, 5.1, 7.5, 39, 0.5, 13);
+  petal(k, 5.0, 6.2, 8, 35, -0.8, 10);
+  // The glass roof over the atrium, a low dome between the petals.
+  k.lathe([[8, 28], [6, 31], [3, 32.5], [0.01, 33]], 0, -8, 32);
+  k.cyl(0, 0, -8, 8.4, 28, 32);
+
+  // ——— La Salve bridge over the long gallery, and the tower that clasps it ———
+  k.box(78, 25, -10, 14, 1.4, 64);
+  for (const z of [-36, 16]) k.box(78, 0, z, 6, 25, 4);
+  k.box(96, 0, -4, 8, 34, 7);
+  k.box(96, 30, -4, 4, 10, 4);
+
+  // ——— The water: the pool along the river front, and the quay ———
+  k.box(10, -0.2, -40, 110, 0.2, 10);
+  k.box(10, 0, -46, 120, 1.4, 2.5);
 }
 
 export default { title: 'Guggenheim Museum Bilbao', build } satisfies ModelInfo;

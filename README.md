@@ -7,7 +7,7 @@ A minimal monochrome atlas of the works of ten of the world's most celebrated ar
 ## How it's made
 
 - Data from Wikidata and Wikimedia Commons, curated per architect by Wikipedia coverage (`npm run data`).
-- Most models are built in code from real dimensions, with a small modelling kit (`src/models/kit.ts`, one file per building in `src/models/buildings/`). Works whose carved forms code can't match (Gaudí's, Ronchamp, the Reichstag, Disney Hall, the Heydar Aliyev Center, the Robie House) use vetted Creative Commons Sketchfab models, simplified to geometry (`npm run models`).
+- Most models are built in code from real dimensions, with a small modelling kit (`src/models/kit.ts`, one file per building in `src/models/buildings/`). Works whose carved forms code can't match (the Sagrada Família, Casa Batlló, the Robie House, Disney Hall, the Reichstag and the Heydar Aliyev Center) use vetted Creative Commons Sketchfab models, simplified to geometry (`npm run models`).
 - `src/models/catalogue.ts` lists the works with a model; only those are on the map. `dev/models.html?id=<Wikidata id>` shows one model on its own in the clay viewer.
 - MapLibre for the map, three.js for the models; served from a Cloudflare Worker with static assets.
 

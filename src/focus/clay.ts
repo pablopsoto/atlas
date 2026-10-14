@@ -222,6 +222,18 @@ export function createClay(container: HTMLElement) {
       readyListeners.forEach((l) => l());
     },
 
+    /** Dev: put the camera at a given bearing and elevation (degrees), distance × zoom. */
+    setView(azDeg: number, polarDeg: number, zoom = 1) {
+      intro = null;
+      controls.autoRotate = false;
+      const d = camera.position.distanceTo(controls.target) * zoom;
+      const az = MathUtils.degToRad(azDeg);
+      const polar = MathUtils.degToRad(polarDeg);
+      camera.position.set(-Math.sin(az) * Math.sin(polar) * d, controls.target.y + Math.cos(polar) * d, Math.cos(az) * Math.sin(polar) * d);
+      camera.lookAt(controls.target);
+      controls.update();
+    },
+
     hide() {
       token++;
       running = false;

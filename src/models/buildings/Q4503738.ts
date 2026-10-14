@@ -28,11 +28,11 @@ function build(k: Kit) {
   // The courtyard: the bridge across at the upper level and the stair up to it.
   k.box(0, 2.85, 0, 1.0, 0.2, third);
   k.stairs([W / 2 - 0.55, third / 2 - 0.2], [W / 2 - 0.55, -third / 2 + 0.6], 0, 2.85, 0.9, 14);
-  // Form-tie holes are too small to see at this scale; the panel joints aren't.
-  for (let y = 0.9; y < H; y += 0.9) {
-    k.box(-W / 2 - 0.005, y, 0, 0.01, 0.02, D);
-    k.box(W / 2 + 0.005, y, 0, 0.01, 0.02, D);
-  }
+  // The panel grid and tie holes on every outside face.
+  k.formwork([W / 2, -D / 2], [-W / 2, -D / 2], 0, H);
+  k.formwork([-W / 2, -D / 2], [-W / 2, D / 2], 0, H);
+  k.formwork([W / 2, D / 2], [W / 2, -D / 2], 0, H);
+  k.formwork([-W / 2, D / 2], [W / 2, D / 2], 0, H);
 }
 
 export default { title: 'Row House in Sumiyoshi', build } satisfies ModelInfo;

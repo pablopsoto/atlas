@@ -201,6 +201,38 @@ export class Kit {
     return this;
   }
 
+  /**
+   * The joints of formwork panels on a concrete face from a to b (outward to the right of
+   * a→b), with the tie holes: Ando's 1.8 × 0.9 m grid unless told otherwise.
+   */
+  formwork(a: P2, b: P2, y: number, h: number, opts: { pw?: number; ph?: number; holes?: boolean } = {}) {
+    const pw = opts.pw ?? 1.8;
+    const ph = opts.ph ?? 0.9;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const ux = (b[0] - a[0]) / len;
+    const uz = (b[1] - a[1]) / len;
+    const nx = uz;
+    const nz = -ux;
+    const off = 0.01;
+    const at = (t: number): P2 => [a[0] + ux * t + nx * off, a[1] + uz * t + nz * off];
+    const ry = -Math.atan2(uz, ux);
+    for (let t = pw; t < len - 0.05; t += pw) {
+      const [x, z] = at(t);
+      this.box(x, y, z, 0.03, h, 0.03, ry);
+    }
+    for (let yy = y + ph; yy < y + h - 0.05; yy += ph) {
+      const [x, z] = at(len / 2);
+      this.box(x, yy, z, len, 0.03, 0.03, ry);
+    }
+    if (opts.holes ?? true) {
+      for (let t = pw / 6; t < len; t += pw / 3) for (let yy = y + ph / 4; yy < y + h; yy += ph / 2) {
+        const [x, z] = at(t);
+        this.box(x, yy, z, 0.06, 0.06, 0.03, ry);
+      }
+    }
+    return this;
+  }
+
   /** A straight flight of stairs from a (bottom) to b (top), w wide, rising h. */
   stairs(a: P2, b: P2, y: number, h: number, w: number, steps?: number) {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -246,7 +278,7 @@ export class Kit {
    * A closed solid lofted through rings of points (each ring the same length, in order
    * round the section), capped at both ends. For blobs, hulls and twisting towers.
    */
-  loft(rings: P3[][], caps = true) {
+  loft(rings: P3[][], caps = true, smooth = true) {
     const n = rings[0].length;
     const pos: number[] = [];
     const tri = (a: P3, b: P3, c: P3) => pos.push(...a, ...b, ...c);
@@ -267,10 +299,14 @@ export class Kit {
     }
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    if (!smooth) {
+      g.computeVertexNormals();
+      return this.add(g);
+    }
     // Shared vertices, so curved skins shade smooth.
-    const smooth = mergeVertices(g, 1e-5);
-    smooth.computeVertexNormals();
-    return this.add(smooth);
+    const merged = mergeVertices(g, 1e-5);
+    merged.computeVertexNormals();
+    return this.add(merged);
   }
 
   /** A sheet given by f(u, v) for u, v in [0, 1], thickened downwards by t. */

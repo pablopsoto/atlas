@@ -20,7 +20,13 @@
       const id = q.get('id');
       const c = createClay(document.getElementById('stage'));
       c.setTheme({ paper: PALETTES.light.paper, clay: '#efece6', ink: PALETTES.light.ink });
-      c.onReady(() => setTimeout(() => (document.title = 'ready'), 2200));
+      c.onReady(() =>
+        setTimeout(() => {
+          // ?el=75&zoom=0.8 sets an exact view, to compare with a photograph.
+          if (q.get('el')) c.setView(Number(q.get('az') ?? 0), Number(q.get('el')), Number(q.get('zoom') ?? 1));
+          setTimeout(() => (document.title = 'ready'), 300);
+        }, 2200),
+      );
       c.onError((e) => (document.title = 'error ' + e));
       const glb = q.get('glb');
       c.show(glb ? { src: `/models/${id}.glb`, title: '', author: '', license: '', page: '' } : { code: id, title: '', author: '', license: '', page: '' }, { left: 0, right: 0, top: 0, bottom: 0 }, Number(q.get('az') ?? 0));

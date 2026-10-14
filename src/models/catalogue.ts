@@ -5,7 +5,7 @@ export const CATALOGUE: Record<string, 'code' | 'glb'> = {
   // Gaudí
   Q48435: 'glb', // Sagrada Família
   Q461371: 'glb', // Casa Batlló
-  Q207870: 'glb', // Casa Milà
+  Q207870: 'code', // Casa Milà
   // Wright
   Q463179: 'code', // Fallingwater
   Q201469: 'code', // Guggenheim, New York
@@ -13,7 +13,7 @@ export const CATALOGUE: Record<string, 'code' | 'glb'> = {
   // Le Corbusier
   Q940746: 'code', // Villa Savoye
   Q2587975: 'code', // Unité d'Habitation, Marseille
-  Q638250: 'glb', // Notre Dame du Haut, Ronchamp
+  Q638250: 'code', // Notre Dame du Haut, Ronchamp
   // Mies
   Q807915: 'code', // Barcelona Pavilion
   Q1397013: 'code', // Farnsworth House
