@@ -2,8 +2,10 @@
 // model — matte plaster, soft shadow, ink edges, a hairline site circle. Loaded on demand.
 import {
   Box3,
+  BoxGeometry,
   BufferGeometry,
   Color,
+  DoubleSide,
   DirectionalLight,
   EdgesGeometry,
   Euler,
@@ -30,7 +32,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { ModelRef } from '../data';
-import type { Viewport } from './photoreal';
+/** Screen space taken by panels, so the model centres in what's left. */
+export interface Viewport {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
 
 export interface ClayTheme {
   paper: string;
@@ -40,6 +48,8 @@ export interface ClayTheme {
 
 /** Models are normalised so their larger plan dimension is this many units. */
 const SIZE = 100;
+/** Height of the base every model stands on. */
+const PLINTH = 1.6;
 
 export function createClay(container: HTMLElement) {
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -58,7 +68,8 @@ export function createClay(container: HTMLElement) {
   controls.autoRotateSpeed = 0.7;
   controls.addEventListener('start', () => (controls.autoRotate = false));
 
-  const clay = new MeshStandardMaterial({ color: '#efece6', roughness: 0.92, metalness: 0 });
+  // Double-sided: some downloaded models are open shells.
+  const clay = new MeshStandardMaterial({ color: '#efece6', roughness: 0.92, metalness: 0, side: DoubleSide });
   const edges = new LineBasicMaterial({ color: '#000', transparent: true, opacity: 0.22 });
   const site = new MeshBasicMaterial({ color: '#121211', transparent: true, opacity: 0.5 });
 
@@ -130,9 +141,9 @@ export function createClay(container: HTMLElement) {
       viewport = vp;
       resize();
       controls.enabled = false;
-      let gltf;
+      let inner: Object3D;
       try {
-        gltf = await loader.loadAsync(ref.src);
+        inner = ref.code ? await import('../models/catalogue').then((m) => m.buildModel(ref.code!)) : (await loader.loadAsync(ref.src!)).scene;
       } catch (e) {
         if (my === token) errorListeners.forEach((l) => l(e));
         return;
@@ -144,7 +155,6 @@ export function createClay(container: HTMLElement) {
       }
 
       const root = new Group();
-      const inner = gltf.scene;
       if (ref.rotate) inner.rotation.copy(new Euler(...ref.rotate.map((d) => MathUtils.degToRad(d)) as [number, number, number]));
       root.add(inner);
 
@@ -164,10 +174,21 @@ export function createClay(container: HTMLElement) {
         // Ink the creases, like pencil on a white model.
         o.add(new LineSegments(new EdgesGeometry(o.geometry, 30), edges));
       });
-      scene.add(root);
-      model = root;
-
+      // Every model stands on the same plinth, like pieces of one collection.
       box = new Box3().setFromObject(root);
+      const pw = (box.max.x - box.min.x) * 1.1 + SIZE * 0.04;
+      const pd = (box.max.z - box.min.z) * 1.1 + SIZE * 0.04;
+      const plinth = new Mesh(new BoxGeometry(pw, PLINTH, pd), clay);
+      plinth.position.set((box.min.x + box.max.x) / 2, PLINTH / 2, (box.min.z + box.max.z) / 2);
+      plinth.castShadow = plinth.receiveShadow = true;
+      plinth.add(new LineSegments(new EdgesGeometry(plinth.geometry, 30), edges));
+      root.position.y += PLINTH;
+      const holder = new Group();
+      holder.add(root, plinth);
+      scene.add(holder);
+      model = holder;
+
+      box = new Box3().setFromObject(holder);
       const sphere = box.getBoundingSphere(new Sphere());
       const height = box.max.y - box.min.y;
       ring.scale.setScalar(sphere.radius * 1.12);
@@ -181,13 +202,14 @@ export function createClay(container: HTMLElement) {
       });
       sun.shadow.camera.updateProjectionMatrix();
 
-      controls.target.set(0, height * 0.35, 0);
-      const dist = (sphere.radius / Math.sin(MathUtils.degToRad(camera.fov / 2))) * 1.3;
+      // Aim at the middle of the model, so towers fit as well as low, wide buildings.
+      controls.target.set(0, height * 0.42, 0);
+      const dist = (sphere.radius / Math.sin(MathUtils.degToRad(camera.fov / 2))) * 1.08;
       controls.minDistance = sphere.radius * 0.9;
       controls.maxDistance = dist * 3;
       // Same convention as the map: look along its bearing, from the south when north-up.
       const az = MathUtils.degToRad(bearing);
-      const polar = MathUtils.degToRad(62);
+      const polar = MathUtils.degToRad(69);
       const eye = new Vector3(-Math.sin(az), 0, Math.cos(az))
         .multiplyScalar(Math.sin(polar) * dist)
         .setY(Math.cos(polar) * dist + controls.target.y);

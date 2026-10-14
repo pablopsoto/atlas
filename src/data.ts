@@ -1,5 +1,6 @@
 // Emitted with a content hash, so a new dataset is never hidden behind a cached copy.
 import atlasUrl from './generated/atlas.json?url';
+import { CATALOGUE, hasCode } from './models/catalogue';
 
 export interface ImageRef {
   src: string;
@@ -43,7 +44,10 @@ export interface Work {
 }
 
 export interface ModelRef {
-  src: string;
+  /** A Sketchfab model, converted to GLB... */
+  src?: string;
+  /** ...or a model built in code (src/models/buildings/<id>.ts). */
+  code?: string;
   title: string;
   author: string;
   license: string;
@@ -79,7 +83,15 @@ export const TYPE_LABELS: Record<string, string> = {
 export async function loadAtlas(): Promise<Atlas> {
   const res = await fetch(atlasUrl);
   if (!res.ok) throw new Error(`Could not load data (${res.status})`);
-  const { architects, works } = (await res.json()) as { architects: Architect[]; works: Work[] };
+  const data = (await res.json()) as { architects: Architect[]; works: Work[] };
+  const architects = data.architects;
+  // Only works with a model are on the map: the model is the point of a visit.
+  const works = data.works.flatMap((w) => {
+    const kind = CATALOGUE[w.id];
+    if (kind === 'code' && hasCode(w.id)) return [{ ...w, model: { code: w.id, title: w.name, author: 'Pablo Pérez', license: 'modelled for Atlas', page: '' } }];
+    if (kind === 'glb' && w.model) return [w];
+    return [];
+  });
   const years = works.map((w) => w.year).filter((y): y is number => y !== null);
   return {
     architects,

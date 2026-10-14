@@ -15,7 +15,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "3d-tiles-renderer": "^0.5.3",
     "maplibre-gl": "^6.11.2",
     "three": "^0.186.1"
   },

@@ -4,20 +4,6 @@ import { PALETTES, type Theme } from '../map-style';
 import { esc } from '../ui/util';
 import type { Clay, ClayTheme } from './clay';
 import { clearMassing, createMapOrbit, findFootprint, setOverlayVisible, showMassing, zoomFor, type Footprint } from './massing';
-import type { Photoreal, TilesAuth } from './photoreal';
-
-/** Photorealistic tiles: Cesium ion's free tier first, a Google key as an alternative. */
-const ION = (import.meta.env.VITE_CESIUM_ION_TOKEN as string | undefined)?.trim();
-const GOOGLE = (import.meta.env.VITE_GOOGLE_MAPS_KEY as string | undefined)?.trim();
-const AUTH: TilesAuth | null = ION ? { ion: ION } : GOOGLE ? { google: GOOGLE } : null;
-
-/** model: curated clay model · photo: photorealistic tiles · massing: OpenStreetMap footprints. */
-type Mode = 'model' | 'photo' | 'massing';
-
-const GOOGLE_LOGO = {
-  light: 'https://maps.gstatic.com/mapfiles/api-3/images/google4_hdpi.png',
-  dark: 'https://maps.gstatic.com/mapfiles/api-3/images/google_white5_hdpi.png',
-};
 
 const CLAY: Record<Theme, ClayTheme> = {
   light: { paper: PALETTES.light.paper, clay: '#efece6', ink: PALETTES.light.ink },
@@ -25,9 +11,8 @@ const CLAY: Record<Theme, ClayTheme> = {
 };
 
 /**
- * Focus on one work: the map locks onto it and orbits, its building is drawn solid among
- * ghosted neighbours, and a 3D view takes over — the curated clay model where there is one,
- * otherwise photorealistic tiles when configured.
+ * Focus on one work: the map flies to it and its building is drawn solid among ghosted
+ * neighbours, then the clay model takes over. Every work on the map has one.
  */
 export function createFocus(am: AtlasMap, getTheme: () => Theme) {
   const { map } = am;
@@ -35,28 +20,18 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
   const stage = document.getElementById('stage')!;
   const bar = document.getElementById('focusbar')!;
   const credit = document.getElementById('fb-credit')!;
-  const modeBtns = [...bar.querySelectorAll<HTMLButtonElement>('[data-mode]')];
-  const monoBtn = document.getElementById('fb-mono') as HTMLButtonElement;
-
-  let mode: Mode = 'massing';
-  let mono = true;
   let token = 0;
   let current: { work: Work; fp: Footprint | null } | null = null;
-  let photo: Promise<Photoreal | null> | null = null;
   let clay: Promise<Clay | null> | null = null;
-  let creditTimer = 0;
-
-  const available = (m: Mode, w: Work) => (m === 'model' ? !!w.model : m === 'photo' ? !!AUTH : true);
-  const preferred = (w: Work): Mode => (w.model ? 'model' : AUTH ? 'photo' : 'massing');
 
   function viewport() {
     const p = am.padding();
     return { left: p.left, right: p.right, top: p.top, bottom: p.bottom };
   }
 
-  /** The 3D stage covers the map once a view is ready; the map orbit stands down. */
-  function reveal(which: 'clay' | 'photo') {
-    stage.dataset.view = which;
+  /** The 3D stage covers the map once the model is ready; the map orbit stands down. */
+  function reveal() {
+    stage.dataset.view = 'clay';
     stage.classList.add('visible');
     orbit.disable();
   }
@@ -64,29 +39,6 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
   function conceal() {
     stage.classList.remove('visible');
     clay?.then((c) => c?.hide());
-    photo?.then((p) => p?.hide());
-  }
-
-  function loadPhoto() {
-    if (!AUTH) return Promise.resolve(null);
-    photo ??= import('./photoreal')
-      .then(({ createPhotoreal }) => {
-        const p = createPhotoreal(stage, AUTH);
-        p.domElement.classList.add('stage-photo');
-        p.setPaper(PALETTES[getTheme()].paper);
-        p.setMono(mono);
-        p.onReady(() => mode === 'photo' && current && reveal('photo'));
-        p.onError((err) => {
-          console.warn('Photorealistic tiles unavailable.', err);
-          if (mode === 'photo' && current) setMode(current.work.model ? 'model' : 'massing');
-        });
-        return p;
-      })
-      .catch((err) => {
-        console.warn('Could not load the photoreal viewer.', err);
-        return null;
-      });
-    return photo;
   }
 
   function loadClay() {
@@ -95,11 +47,8 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
         const c = createClay(stage);
         c.domElement.classList.add('stage-clay');
         c.setTheme(CLAY[getTheme()]);
-        c.onReady(() => mode === 'model' && current && reveal('clay'));
-        c.onError((err) => {
-          console.warn('Could not load the model.', err);
-          if (mode === 'model' && current) setMode(AUTH ? 'photo' : 'massing');
-        });
+        c.onReady(() => current && reveal());
+        c.onError((err) => console.warn('Could not load the model.', err));
         return c;
       })
       .catch((err) => {
@@ -110,52 +59,18 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
   }
 
   function renderBar() {
-    const work = current?.work;
-    for (const b of modeBtns) {
-      const m = b.dataset.mode as Mode;
-      b.hidden = !work || !available(m, work);
-      b.setAttribute('aria-pressed', String(m === mode));
-    }
-    // A single option isn't a choice.
-    bar.querySelector<HTMLElement>('.fb-seg')!.hidden = modeBtns.filter((b) => !b.hidden).length < 2;
-    monoBtn.hidden = mode !== 'photo';
-    monoBtn.setAttribute('aria-pressed', String(mono));
-    clearInterval(creditTimer);
-    if (mode === 'photo') {
-      const update = async () => {
-        const text = (await photo)?.attributions().join(' · ') ?? '';
-        credit.innerHTML = `<img src="${GOOGLE_LOGO[getTheme()]}" alt="Google" height="16" /><span>${esc(text)}</span>`;
-      };
-      update();
-      creditTimer = window.setInterval(update, 1500);
-    } else if (mode === 'model' && work?.model) {
-      const m = work.model;
-      credit.innerHTML = `<a href="${esc(m.page)}" target="_blank" rel="noopener">Model “${esc(m.title)}” by ${esc(m.author)} · ${esc(m.license)}</a>`;
-    } else {
-      credit.innerHTML = '<span>Massing from OpenStreetMap</span>';
-    }
+    const m = current?.work.model;
+    if (!m) return;
+    credit.innerHTML = m.code
+      ? '<span>Modelled in code by Pablo Pérez for Atlas</span>'
+      : `<a href="${esc(m.page)}" target="_blank" rel="noopener">Model “${esc(m.title)}” by ${esc(m.author)} · ${esc(m.license)}</a>`;
   }
 
-  /** Bring up the 3D view for the current mode (massing needs nothing beyond the map). */
-  async function present(work: Work, fp: Footprint | null, my: number) {
-    if (mode === 'model' && work.model) {
-      const c = await loadClay();
-      if (c && my === token && mode === 'model') c.show(work.model, viewport(), map.getBearing());
-    } else if (mode === 'photo') {
-      const p = await loadPhoto();
-      if (!p || my !== token || mode !== 'photo') return;
-      p.show(
-        {
-          lng: fp?.center[0] ?? work.lng,
-          lat: fp?.center[1] ?? work.lat,
-          radius: fp ? fp.radius * 0.9 + 4 : (work.radius ?? 40),
-          height: fp?.height ?? 15,
-          bearing: map.getBearing(),
-          pitch: map.getPitch(),
-        },
-        viewport(),
-      );
-    }
+  /** Bring up the clay model. */
+  async function present(work: Work, my: number) {
+    if (!work.model) return;
+    const c = await loadClay();
+    if (c && my === token) c.show(work.model, viewport(), map.getBearing());
   }
 
   const settled = (my: number) =>
@@ -175,7 +90,6 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
     const my = ++token;
     const wasFocused = current !== null;
     current = { work, fp: null };
-    mode = preferred(work);
     document.body.classList.add('focus');
     bar.hidden = false;
     renderBar();
@@ -183,6 +97,8 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
     orbit.disable();
     clearMassing(map);
 
+    // Listen before flying: with reduced motion the flight ends at once.
+    const landed = settled(my);
     map.flyTo({
       center: [work.lng, work.lat],
       zoom: 16.8,
@@ -192,9 +108,9 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
       duration: reducedMotion() ? 0 : 3000,
       essential: true,
     });
-    // A clay model doesn't depend on the map, so it loads during the flight.
-    if (mode === 'model') loadClay();
-    if (!(await settled(my))) return;
+    // The model doesn't depend on the map: it loads and appears during the flight.
+    present(work, my);
+    if (!(await landed)) return;
 
     const fp = findFootprint(map, work);
     current.fp = fp;
@@ -208,9 +124,6 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
       duration: reducedMotion() ? 0 : 900,
     });
     orbit.enable(false);
-    // Turning the camera would cancel the zoom, so the slow spin waits for it to land.
-    map.once('moveend', () => my === token && mode === 'massing' && orbit.enable(!reducedMotion()));
-    present(work, fp, my);
   }
 
   function exit() {
@@ -218,37 +131,15 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
     current = null;
     document.body.classList.remove('focus');
     bar.hidden = true;
-    clearInterval(creditTimer);
     conceal();
     orbit.disable();
     clearMassing(map);
     setOverlayVisible(map, true);
   }
 
-  function setMode(next: Mode) {
-    if (!current || !available(next, current.work)) return;
-    mode = next;
-    renderBar();
-    conceal();
-    if (mode === 'massing') orbit.enable(!reducedMotion());
-    else present(current.work, current.fp, token);
-  }
-
-  bar.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest('button');
-    if (!btn) return;
-    if (btn.dataset.mode) setMode(btn.dataset.mode as Mode);
-    else if (btn === monoBtn) {
-      mono = !mono;
-      renderBar();
-      photo?.then((p) => p?.setMono(mono));
-    }
-  });
-
   // Keep the model centred as panels open, close or the window resizes.
   addEventListener('resize', () => {
     if (!current) return;
-    photo?.then((p) => p?.setViewport(viewport()));
     clay?.then((c) => c?.setViewport(viewport()));
   });
 
@@ -259,7 +150,6 @@ export function createFocus(am: AtlasMap, getTheme: () => Theme) {
       return current !== null;
     },
     setTheme(theme: Theme) {
-      photo?.then((p) => p?.setPaper(PALETTES[theme].paper));
       clay?.then((c) => c?.setTheme(CLAY[theme]));
       if (current?.fp) showMassing(map, current.fp);
       if (current) renderBar();
