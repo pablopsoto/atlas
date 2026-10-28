@@ -2,7 +2,7 @@
 
 A minimal monochrome atlas of the works of ten of the world's most celebrated architects, from Gaudí to Hadid. Filter by era, style or architect, follow the line that connects one architect's buildings, and step into any work in 3D.
 
-**Live:** https://atlas.pablopsoto.workers.dev
+**Live:** https://atlas.pablopsoto.dev
 
 ## How it's made
 
