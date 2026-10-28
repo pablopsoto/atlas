@@ -1485,3 +1485,7 @@ body:not(.ready) .dock {
     }
   }
 }
+
+/* The signature links home, quietly. */
+.tb-author a, a.credits-author { color: inherit; text-decoration: none; }
+.tb-author a:hover, a.credits-author:hover { text-decoration: underline; text-underline-offset: 2px; }
